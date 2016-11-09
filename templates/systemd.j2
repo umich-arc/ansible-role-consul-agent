@@ -1,0 +1,21 @@
+[Unit]
+Description=Consul Agent
+Wants=basic.target
+After=basic.target network.target
+
+[Service]
+User={{ _consul_agent_user.name }}
+Group={{ _consul_agent_group.name }}
+ExecStart=/usr/local/bin/consul agent {% for key, value in consul_agent_opts.iteritems() -%} 
+{% if value is none %}-{{ key }} {% else -%}
+{% for opt in value %}-{{ key }}={{ opt }} {% endfor %}{% endif -%}
+{% endfor %}
+
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=process
+KillSignal=SIGINT
+LimitNOFILE=65536
+Environment=GOMAXPROCS={{ ansible_processor_cores }}
+
+[Install]
+WantedBy=multi-user.target

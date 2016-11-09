@@ -1,0 +1,18 @@
+---
+
+- name: FUNCTION - session_create - with TTL
+  uri:
+    url: '{{ _consul_agent_uri_screate }}'
+    user: '{{ consul_agent_http_user|default(omit) }}'
+    password: '{{ consul_agent_http_pass|default(omit) }}'
+    HEADER_X-Consul-Token: '{{ consul_agent_sec_cfg.acl.master_token|default(omit) }}'
+    method: PUT
+    return_content: true
+    body: '{"Name": "Ansible Session", "TTL": "{{ ttl }}s" }'
+    body_format: json
+  register: _consul_agent_session
+  until: (_consul_agent_session is defined) and
+         (_consul_agent_session.json is defined) and
+         (_consul_agent_session.json.ID is defined)
+  delay: '{{ consul_agent_check_delay }}'
+  retries: '{{ consul_agent_check_retries }}'

@@ -1,0 +1,52 @@
+---
+
+# We reload the config and do a double check of the key being present to short circuit the parent
+# include loop in the event of a failure during a run. This prevents the key from being created
+# twice.
+
+- name: CREATE ACL - Reload Consul Security Settings
+  delegate_to: 127.0.0.1
+  include_vars: '{{ consul_agent_security_config_file.path }}'
+
+- name: CREATE ACL - Check if ACL Creation Should Continue
+  set_fact:
+    _consul_agent_acl_tmp_ccheck: >
+      {%- if consul_agent_sec_cfg.acl.uuid[item.key] is not defined -%}
+        true
+      {%- else -%}
+        false
+      {%- endif -%}
+
+- block:
+  - name: CREATE ACL - Ensure Consul Service is Available
+    include: '../functions/get_leader.yml'
+
+  - name: CREATE ACL - Attempt to Create ACL
+    uri:
+      url: '{{ _consul_agent_uri_acreate }}'
+      user: '{{ consul_agent_http_user|default(omit) }}'
+      password: '{{ consul_agent_http_pass|default(omit) }}'
+      HEADER_X-Consul-Token: '{{ consul_agent_sec_cfg.acl.master_token|default(omit) }}'
+      method: PUT
+      return_content: true
+      body_format: json
+      body: '{{ item.value|to_nice_json }}'
+    register: _consul_agent_created_acl
+
+  - name: CREATE ACL - Update Security Config
+    set_fact:
+      consul_agent_sec_cfg: "{{ consul_agent_sec_cfg|combine(
+        {
+          'acl': {
+            'acls': consul_agent_sec_cfg.acl.acls|combine({item.key: item.value }),
+            'uuid': consul_agent_sec_cfg.acl.uuid|combine({item.key: _consul_agent_created_acl.json.ID})
+          }
+        }, recursive=true
+      ) }}"
+
+  - name: CREATE ACL - Save Updated Security Settings
+    include: '../functions/save_security_settings.yml'
+    vars:
+      content: "{{ {'consul_agent_sec_cfg': consul_agent_sec_cfg}|to_nice_json }}"
+
+  when: _consul_agent_acl_tmp_ccheck|trim|bool == true

@@ -1,0 +1,32 @@
+---
+dependencies: []
+
+galaxy_info:
+  author: Bob Killen
+  description: >
+    Installs and manages most aspects of consul including cluster bootstrapping,
+    coordinating rolling service restarts across groups of hosts, and ACL management.
+  company: University of Michigan
+  issue_tracker_url: https://github.com/arc-ts/ansible-role-consul-agent/issues
+  license: MIT
+  min_ansible_version: 2.1
+
+  platforms:
+    - name: EL
+      versions:
+        - 7
+    - name: Ubuntu
+      versions:
+        - trusty
+        - xenial
+    - name: Debian
+      versions:
+        - jessie
+
+  galaxy_tags:
+    - consul
+    - acl
+    - clustering
+    - discovery
+    - networking
+    - cloud

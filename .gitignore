@@ -1,0 +1,11 @@
+/*.lock
+.bundle/
+.kitchen/
+.vagrant/
+vendor/
+tests/cluster/security.json
+tests/cluster/cluster.retry
+*.junit.xml
+*.key
+*.pem
+*.swp

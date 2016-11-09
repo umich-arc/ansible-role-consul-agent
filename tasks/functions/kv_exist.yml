@@ -1,0 +1,12 @@
+---
+
+- name: FUNCTION - kv_exists
+  uri:
+    url: '{{ key_url }}'
+    user: '{{ consul_agent_http_user|default(omit) }}'
+    password: '{{ consul_agent_http_pass|default(omit) }}'
+    HEADER_X-Consul-Token: '{{ consul_agent_sec_cfg.acl.master_token|default(omit) }}'
+    method: GET
+    return_content: true
+  ignore_errors: true
+  register: _consul_agent_key_exist

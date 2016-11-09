@@ -1,0 +1,17 @@
+---
+
+- name: FUNCTION - get_checksums - Download Consul Checksums
+  get_url: url='{{ _consul_agent_checksums_url }}' dest='/tmp'
+  register: _consul_agent_download_agent_checksums
+  until: _consul_agent_download_agent_checksums|succeeded
+  delay: '{{ consul_agent_check_retries }}'
+  retries: '{{ consul_agent_check_delay }}'
+
+- name: FUNCTION - get_checksums - Get Consul Agent Checksum
+  shell: >
+    cat '/tmp/{{ _consul_agent_checksums_name }}' |
+    grep '{{ _consul_agent_archive_name }}' | awk '{print $1}'
+  register: _consul_agent_archive_checksum
+
+- name: FUNCTION - get_checksums - Remove Consul Checksum artifacts
+  file: name='/tmp/{{ _consul_agent_checksums_name }}' state=absent

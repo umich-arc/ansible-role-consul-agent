@@ -1,0 +1,21 @@
+description "Consul Agent"
+start on (filesystem and net-device-up !IFACE=lo)
+stop on runlevel [!2345]
+
+respawn
+kill signal SIGINT
+setuid {{ _consul_agent_user.name }}
+setgid {{ _consul_agent_group.name }}
+limit nofile 65536 65536
+
+script
+# Prevents Consul from blocking a scheduler thread
+export GOMAXPROCS={{ ansible_processor_cores }}
+
+exec consul agent {% for key, value in consul_agent_opts.iteritems() -%}
+{% if value is none %}-{{ key }} {% else -%}
+{% for opt in value %}-{{ key }}={{ opt }} {% endfor %}{% endif -%}
+{% endfor %}
+{%- if consul_agent_log_dir is defined %}>> {{ consul_agent_log_dir }}/agent.log 2>&1 {% endif %}
+
+end script

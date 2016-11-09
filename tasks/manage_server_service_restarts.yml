@@ -1,0 +1,44 @@
+---
+
+# Restarts are coordinated using a semaphore lock on the configured consul restart key.
+# Each server obtains a sessions from consul and takes turns locking the key. The lock
+# is released when the service restarts or the ttl expires.
+#
+# At each point there could be a possible chance of interrupting quorum, an additional
+# check on the leader and/or peer status of the cluster is done. If no leader is present,
+# or the peer count is less than the number of servers in the server group, the attempt to
+# restart the service will be delayed until a leader is elected and all peers are healthy.
+
+- name: MANAGE SERVICE RESTART - Wait for HTTP Service to be Ready
+  include: 'functions/get_leader.yml'
+
+- name: MANAGE SERVICE RESTART - Wait for All peers to be Ready.
+  include: 'functions/get_peer_status.yml'
+
+- name: MANAGE SERVICE RESTART - Check for Consul Lock Key
+  include: 'functions/kv_exist.yml'
+  vars:
+    key_url: '{{ _consul_agent_uri_kv_res }}'
+
+- name: MANAGE SERVICE RESTART - Create Consul Lock Key
+  include: 'functions/kv_create.yml'
+  vars:
+    key_url: '{{ _consul_agent_uri_kv_res }}'
+    key_body: 'true'
+  when: _consul_agent_key_exist|failed
+
+# creates _consul_agent_session variable
+- name: MANAGE SERVICE RESTART - Obtain A Consul Session
+  include: 'functions/session_create_no_ttl.yml'
+
+# _consul_agent_service_restarted contains service Restart flag.
+- name: MANAGE SERVICE RESTART - Restart Service
+  include: 'restart_server_service.yml'
+  with_items: '{{ (groups[consul_agent_server_group|default(none)])|default([]) }}'
+  loop_control:
+    loop_var: _consul_agent_restart_host
+
+- name: MANAGE SERVICE RESTART - Attempt to Destroy Session Key
+  include: 'functions/session_destroy.yml'
+  vars:
+    session_id: '{{ _consul_agent_session.json.ID }}'

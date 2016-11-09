@@ -1,0 +1,66 @@
+---
+
+# We reload the config and do a double check of the key being present to short circuit the parent
+# include loop in the event of a failure during a run. This prevents the tasks from trying to
+# delete it multiple times
+
+- name: DESTROY ACL - Reload Consul Security Settings
+  delegate_to: 127.0.0.1
+  include_vars: '{{ consul_agent_security_config_file.path }}'
+
+- name: DESTROY ACL - Check if ACL Deletion Should Continue
+  set_fact:
+    _consul_agent_acl_tmp_dcheck: >
+      {%- if consul_agent_sec_cfg.acl.uuid[d_item.key] is defined -%}
+        true
+      {%- else -%}
+        false
+      {%- endif -%}
+
+- block:
+  - name: DESTROY ACL - Ensure Consul Service is Available
+    include: '../functions/get_leader.yml'
+
+  - name: DESTROY ACL - Attempt to Destroy ACL
+    uri:
+      url: "{{ [_consul_agent_uri_adestroy, d_item.value]|join('/') }}"
+      user: '{{ consul_agent_http_user|default(omit) }}'
+      password: '{{ consul_agent_http_pass|default(omit) }}'
+      HEADER_X-Consul-Token: '{{ consul_agent_sec_cfg.acl.master_token|default(omit) }}'
+      method: PUT
+      return_content: true
+
+  - name: DESTROY ACL - Update UUID Mapping
+    set_fact:
+      _consul_agent_uuid_map: '{{ (_consul_agent_uuid_map|default({}))|combine(
+        {item.key: item.value}
+      ) }}'
+    when: _consul_agent_acl_destroy[item.key] is not defined
+    with_dict: '{{ consul_agent_sec_cfg.acl.uuid }}'
+
+  - name: DESTROY ACL - Update ACL Mapping
+    set_fact:
+      _consul_agent_acl_map: "{{ (_consul_agent_acl_map|default({}))|combine(
+        {item.key: item.value}
+      ) }}"
+    when: _consul_agent_acl_destroy[item.key] is not defined
+    with_dict: '{{ consul_agent_sec_cfg.acl.acls }}'
+
+  - name: DESTROY ACL - Update Security Config
+    set_fact:
+      consul_agent_sec_cfg: "{{ consul_agent_sec_cfg|combine(
+        {
+          'acl': {
+            'acls': _consul_agent_acl_map,
+            'master_token': consul_agent_sec_cfg.acl.master_token,
+            'uuid': _consul_agent_uuid_map
+          }
+        }
+      ) }}"
+
+  - name: DESTROY ACL - Save Updated Security Settings
+    include: '../functions/save_security_settings.yml'
+    vars:
+      content: "{{ {'consul_agent_sec_cfg': consul_agent_sec_cfg}|to_nice_json }}"
+
+  when: _consul_agent_acl_tmp_dcheck|trim|bool == true

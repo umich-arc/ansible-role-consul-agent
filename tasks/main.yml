@@ -1,0 +1,76 @@
+---
+
+- name: MAIN - Execute Consul Agent Prereqs
+  tags: consul consul:server consul:client
+  include: 'prereqs/all.yml'
+
+- name: MAIN - Execute Consul Agent Security Prereqs
+  tags: consul consul:server consul:client
+  no_log: "{{ consul_agent_security_no_log }}"
+  include: 'prereqs/security.yml'
+  when: (consul_agent_manage_gossip_encryption|bool == true) or
+        (consul_agent_manage_acls|bool == true)
+
+- name: MAIN - Execute Consul Gossip Encryption Prereqs
+  tags: consul consul:server
+  no_log: "{{ consul_agent_security_no_log }}"
+  include: 'prereqs/gossip_encryption.yml'
+  when: consul_agent_manage_gossip_encryption|bool == true
+
+- name: MAIN - Execute Consul RPC Encryption Prereqs
+  tags: consul consul:server
+  no_log: "{{ consul_agent_security_no_log }}"
+  include: 'prereqs/rpc_encryption.yml'
+  when: consul_agent_manage_rpc_encryption|bool == true
+
+- name: MAIN - Execute Consul Server Prereqs
+  tags: consul consul:server
+  include: 'prereqs/server.yml'
+  when: (consul_agent_opts.server is defined) or
+        (consul_agent_config.server is defined)
+
+- name: MAIN - Consul ACL Prereqs
+  tags: consul consul:server
+  no_log: "{{ consul_agent_security_no_log }}"
+  include: 'prereqs/acls.yml'
+  when: (consul_agent_manage_acls|bool == true) and
+        ((consul_agent_opts.server is defined) or (consul_agent_config.server is defined))
+
+- name: MAIN - Check For Agent Installation
+  tags: consul consul:server consul:client
+  stat: path='/usr/local/bin/consul'
+  register: _consul_agent_present
+
+- name: MAIN - Check for Correct Version
+  tags: consul consul:server consul:client
+  shell: "/usr/local/bin/consul --version | grep 'v{{ consul_agent_version }}'"
+  ignore_errors: true
+  changed_when: false
+  register: _consul_agent_version_check
+  when: (_consul_agent_present.stat.exists) and
+        (_consul_agent_present.stat.isreg)
+
+- name: MAIN - Install Consul Agent
+  include: 'install.yml'
+  when: (not _consul_agent_present.stat.exists) or
+        (_consul_agent_version_check.rc == 1)
+  tags: consul consul:server consul:client
+
+- name: MAIN - Configure Consul Agent
+  tags: consul consul:server consul:client
+  no_log: "{{ consul_agent_security_no_log }}"
+  include: 'config.yml'
+
+- name: MAIN - Check for ACL Updates
+  tags: consul consul:server
+  include: 'functions/get_acls.yml'
+  when: (consul_agent_manage_acls|bool == true) and
+        ((consul_agent_config.server is defined) or (consul_agent_opts.server is defined))
+
+- name: MAIN - Configure Consul ACLs
+  tags: consul consul:server
+  no_log: "{{ consul_agent_security_no_log }}"
+  include: 'acl/main.yml'
+  when: (_consul_agent_acl_create is defined and _consul_agent_acl_create != {}) or
+        (_consul_agent_acl_destroy is defined and _consul_agent_acl_destroy != {}) or
+        (_consul_agent_acl_update is defined and _consul_agent_acl_update != {})

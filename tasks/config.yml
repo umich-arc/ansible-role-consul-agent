@@ -1,0 +1,175 @@
+---
+
+- name: CONFIG - Create Consul Config Directory
+  file:
+    state: directory
+    mode: '0770'
+    owner: root
+    group: '{{ _consul_agent_group.name }}'
+    path: '{{ consul_agent_config_dir }}'
+  when: consul_agent_config_dir is defined
+
+- name: CONFIG - Create Consul Data Directory
+  file:
+    state: directory
+    mode: '0770'
+    owner: '{{ _consul_agent_user.name }}'
+    group: '{{ _consul_agent_group.name }}'
+    path: '{{ consul_agent_data_dir }}'
+  when: consul_agent_data_dir is defined
+
+- name: CONFIG - Create Consul Scripts Directory
+  file:
+    state: directory
+    mode: '0770'
+    owner: '{{ _consul_agent_user.name }}'
+    group: '{{ _consul_agent_group.name }}'
+    path: '{{ consul_agent_scripts_dir }}'
+  when: consul_agent_scripts_dir is defined
+
+- name: CONFIG - Create Consul Certs Directory
+  file:
+    state: directory
+    mode: '0700'
+    owner: '{{ _consul_agent_user.name }}'
+    group: '{{ _consul_agent_group.name }}'
+    path: '{{ consul_agent_certs_dir }}'
+  when: consul_agent_certs_dir is defined
+
+- name: CONFIG - Create Consul Log Directory
+  file:
+    state: directory
+    mode: '0760'
+    owner: '{{ _consul_agent_user.name }}'
+    group: '{{ _consul_agent_group.name }}'
+    path: '{{ consul_agent_log_dir }}'
+  when: (consul_agent_log_dir is defined) and
+        (ansible_service_mgr == 'upstart')
+
+- name: CONFIG - Create Consul Agent Certificates
+  copy:
+    content: '{{ item.0 }}'
+    dest: "{{ [consul_agent_certs_dir, item.1]|join('/') }}"
+    owner: '{{ _consul_agent_user.name }}'
+    group: '{{ _consul_agent_group.name }}'
+    mode: '{{ item.2 }}'
+  with_together:
+    - [
+        "{{ consul_agent_rpc_encrypt_ca|default('') }}",
+        "{{ consul_agent_rpc_encrypt_key|default('') }}",
+        "{{ consul_agent_rpc_encrypt_cert|default('') }}"
+      ]
+    - ['ca.crt', 'consul.key', 'consul.crt']
+    - [ '0644', '0640', '0644']
+  when: consul_agent_manage_rpc_encryption|bool == true
+
+- name: CONFIG - Sync Consul Agent Check Scripts
+  copy:
+    src: '{{ item }}'
+    dest: '{{ consul_agent_scripts_dir }}'
+    owner: '{{ _consul_agent_user.name }}'
+    group: '{{ _consul_agent_group.name }}'
+    mode: '0770'
+  with_items: '{{ consul_agent_scripts }}'
+  when: consul_agent_scripts is defined
+
+- name: CONFIG - Generate Consul Config
+  copy:
+    content: '{{ consul_agent_config|to_nice_json }}'
+    dest: '{{ consul_agent_config_dir }}/config.json'
+    owner: '{{ _consul_agent_user.name }}'
+    group: '{{ _consul_agent_group.name }}'
+    mode: '0770'
+  register: _consul_agent_cfg
+
+- name: CONFIG - Generate Consul Checks Config
+  copy:
+    content: '{{ consul_agent_checks|to_nice_json }}'
+    dest: '{{ consul_agent_config_dir }}/checks.json'
+    owner: '{{ _consul_agent_user.name }}'
+    group: '{{ _consul_agent_group.name }}'
+    mode: '0770'
+  register: _consul_agent_cfg_checks
+  when: consul_agent_checks is defined
+
+- name: CONFIG - Generate Consul Services Config
+  copy:
+    content: '{{ consul_agent_services|to_nice_json }}'
+    dest: '{{ consul_agent_config_dir }}/services.json'
+    owner: '{{ _consul_agent_user.name }}'
+    group: '{{ _consul_agent_group.name }}'
+    mode: '0770'
+  register: _consul_agent_cfg_services
+  when: consul_agent_services is defined
+
+- name: CONFIG - Generate Consul Watches Config
+  copy:
+    content: '{{ consul_agent_watches|to_nice_json }}'
+    dest: '{{ consul_agent_config_dir }}/watches.json'
+    owner: '{{ _consul_agent_user.name }}'
+    group: '{{ _consul_agent_group.name }}'
+    mode: '0770'
+  register: _consul_agent_cfg_watches
+  when: consul_agent_watches is defined
+
+- name: CONFIG - Create Consul Agent Systemd Unit
+  template:
+    src: systemd.j2
+    dest: /lib/systemd/system/consul.service
+    owner: root
+    group: root
+    mode: '0644'
+  register: _consul_agent_svc_scfg
+  when: ansible_service_mgr == 'systemd'
+
+- name: CONFIG - Execute Systemd Daemon-Reload
+  command: systemctl daemon-reload
+  when: (_consul_agent_svc_scfg.changed) and
+        (ansible_service_mgr == 'systemd')
+
+- name: CONFIG - Create Consul Agent Upstart Config
+  template:
+    src: upstart.j2
+    dest: /etc/init/consul.conf
+    owner: root
+    group: root
+    mode: '0644'
+  register: _consul_agent_svc_ucfg
+  when: ansible_service_mgr == 'upstart'
+
+- name: CONFIG - Enable and Start Consul Agent Service
+  service: name=consul enabled=true state=started
+  register: _consul_agent_svc_status
+
+# This verbose when clause is simply to prevent needless triggering of reloading
+# the consul service.
+
+- name: Reload Consul Agent
+  service: name=consul enabled=true state=reloaded
+  when: (not _consul_agent_svc_status.changed) and
+        (not _consul_agent_cfg.changed and not _consul_agent_svc_cfg.changed) and
+        ((_consul_agent_cfg_checks is defined and _consul_agent_cfg_checks.changed) or
+         (_consul_agent_cfg_services is defined and _consul_agent_cfg_services.changed) or
+         (_consul_agent_cfg_watches is defined and _consul_agent_cfg_watches.changed))
+
+# When the instance is a client, the service can be restarted without causing any
+# issues. However, server instances MUST be handled correctly to maintain quorum.
+
+# logic:
+#  When the service is already running and either the consul config or the systemd/upstart config
+#  has changed, and the system is NOT a server. Restart service.
+- name: CONFIG - Restart Consul Client
+  service: name=consul enabled=true state=restarted
+  when: (_consul_agent_svc_status.changed == false) and
+        (_consul_agent_cfg.changed or _consul_agent_svc_scfg.changed or _consul_agent_svc_ucfg.changed) and
+        ((consul_agent_config.server is not defined) and (consul_agent_opts.server is not defined))
+
+# logic:
+#  When the service is already running and either the consul config or the systemd/upstart config
+#  has changed, and the system is a server. Manage the restarts to ensure quorum.
+
+- name: CONFIG - Restart Consul Server
+  include: 'manage_server_service_restarts.yml'
+  when: (_consul_agent_svc_status.changed == false) and
+        (_consul_agent_cfg.changed or _consul_agent_svc_scfg.changed or _consul_agent_svc_ucfg.changed) and
+        ((consul_agent_config.server is defined) or (consul_agent_opts.server is defined))

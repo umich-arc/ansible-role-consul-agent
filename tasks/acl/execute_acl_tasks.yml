@@ -1,0 +1,45 @@
+---
+
+# This is a workaround for an issue when testing against an item passed in the outer loop
+# via loop_var. If used in a when clause, it will return undefined. However setting a fact
+# equal to it and testing against that new fact will evaluate correctly.
+- name: EXECUTE ACL TASK - Set Temp Hostname Fact
+  set_fact:
+    _consul_agent_tmp_acl_host: '{{ _consul_agent_acl_host  }}'
+
+- name: EXECUTE ACL TASK - Renew TTL
+  include: '../functions/session_renew.yml'
+  vars:
+    session_id: '{{ _consul_agent_session.json.ID }}'
+
+- name: EXECUTE ACL TASK - Attempt to Acquire Lock Key
+  include: '../functions/kv_acquire_lock.yml'
+  vars:
+    key_url: '{{ _consul_agent_uri_kv_acl }}'
+    session_id: '{{ _consul_agent_session.json.ID }}'
+  when: inventory_hostname == _consul_agent_tmp_acl_host
+
+- block:
+  - name: EXECUTE ACL TASK - Check For ACL Updates
+    include: '../functions/get_acls.yml'
+
+  - name: EXECUTE ACL TASK - Ensure a HTTP Service is Responding
+    include: '../functions/get_leader.yml'
+
+  - name: EXECUTE ACL TASK - Destroy ACLs
+    include: 'destroy.yml'
+    with_dict: '{{ _consul_agent_acl_destroy|default({}) }}'
+    loop_control:
+      loop_var: d_item
+
+  - name: EXECUTE ACL TASK - Create ACLs
+    include: 'create.yml'
+    with_dict: '{{ _consul_agent_acl_create|default({}) }}'
+
+  - name: EXECUTE ACL TASK - Update ACLs
+    include: 'update.yml'
+    with_dict: '{{ _consul_agent_acl_update|default({}) }}'
+
+  when: (_consul_agent_lock_acquired is defined) and
+        (_consul_agent_lock_acquired.json is defined) and
+        (_consul_agent_lock_acquired.json|bool == true)

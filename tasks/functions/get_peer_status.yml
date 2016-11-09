@@ -1,0 +1,15 @@
+---
+
+- name: FUNCTION - get_peer_status
+  uri:
+    url: '{{ _consul_agent_uri_status }}'
+    user: '{{ consul_agent_http_user|default(omit) }}'
+    password: '{{ consul_agent_http_pass|default(omit) }}'
+    return_content: true
+  register: _consul_agent_peer_status
+  until: (_consul_agent_peer_status is defined) and
+         (_consul_agent_peer_status.json is defined) and
+         (_consul_agent_peer_status.json is not none) and
+         (_consul_agent_peer_status.json|length == groups[consul_agent_server_group]|length)
+  delay: '{{ consul_agent_check_retries }}'
+  retries: '{{ consul_agent_check_delay }}'

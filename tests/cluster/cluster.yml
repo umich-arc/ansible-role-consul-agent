@@ -1,0 +1,96 @@
+---
+# Gather facts task done in linear strategy as a task before executing the consul server tasks to
+# ensure all host variables are known before execution. If this is not done, tasks that reference
+# host facts can fail. e.g. the start_join reference in the playbook below.
+#
+- name: Gather Facts
+  hosts: all
+  gather_facts: true
+  any_errors_fatal: true
+
+- name: provision consul servers
+  hosts: consul_servers
+  strategy: free
+  tags:
+    - 'consul:server'
+  roles:
+    - ansible-role-consul-agent
+  vars:
+    consul_agent_server_group: consul_servers
+    consul_agent_manage_acls: true
+    consul_agent_manage_gossip_encryption: true
+    consul_agent_manage_rpc_encryption: false
+    consul_agent_security_no_log: false
+    consul_agent_opts:
+      server:
+      ui:
+      client: ['{{ ansible_enp0s8.ipv4.address }}']
+      bind: ['{{ ansible_enp0s8.ipv4.address }}']
+      config-dir: ['/etc/consul/conf.d']
+      data-dir: ['/var/lib/consul/data']
+    consul_agent_config:
+      bootstrap_expect: 3
+      start_join: "{{ groups['consul_servers']|map('extract', hostvars, ['ansible_enp0s8', 'ipv4', 'address'])|list }}"
+      advertise_addr: '{{ ansible_enp0s8.ipv4.address }}'
+      log_level: INFO
+    consul_agent_acls:
+      write_kv:
+        name: write_kv
+        type: client
+        rules: |
+          key "locks/consul/restart" {
+            policy = "write"
+          }
+      read_kv:
+        name: read_kv
+        type: client
+        rules: |
+          key "locks/consul/acl" {
+            policy = "read"
+          }
+    consul_agent_scripts:
+      - '../sshd_service.sh'
+    consul_agent_services:
+      service:
+        name: ssh
+        tags: ['ssh']
+        address: '{{ ansible_enp0s8.ipv4.address }}'
+        port: 22
+    consul_agent_checks:
+      checks:
+        - id: ssh_tcp
+          name: ssh_tcp check
+          service_id: ssh
+          tcp: '{{ ansible_enp0s8.ipv4.address }}:22'
+          interval: 10s
+          timeout: 1s
+        - id: ssh_script
+          name: ssh service check
+          service_id: ssh
+          script: /var/lib/consul/scripts/sshd_service.sh
+          interval: 10s
+          timeout: 1s
+
+
+- name: provision consul clients
+  hosts: consul_clients
+  tags:
+   - 'consul:client'
+  roles:
+    - ansible-role-consul-agent
+  vars:
+    consul_agent_manage_acls: false
+    consul_agent_manage_gossip_encryption: true
+    consul_agent_manage_rpc_encryption: false
+    consul_agent_security_no_log: false
+    consul_agent_opts:
+      ui:
+      client: ['{{ ansible_enp0s8.ipv4.address }}']
+      bind: ['{{ ansible_enp0s8.ipv4.address }}']
+      config-dir: ['/etc/consul/conf.d']
+      data-dir: ['/var/lib/consul/data']
+    consul_agent_config:
+      advertise_addr: '{{ ansible_enp0s8.ipv4.address }}'
+      start_join: "{{ groups['consul_servers']|map('extract', hostvars, ['ansible_enp0s8', 'ipv4', 'address'])|list }}"
+      acl_token: "{{ consul_agent_sec_cfg.acl.uuid['write_kv'] }}"
+      log_level: INFO

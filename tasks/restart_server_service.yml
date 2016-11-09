@@ -1,0 +1,44 @@
+---
+
+# This is a workaround for an issue when testing against an item passed in the outer loop
+# via loop_var. If used in a when clause, it will return undefined. However setting a fact
+# equal to it and testing against that new fact will evaluate correctly.
+- name: EXECUTE ACL TASK - Set Temp Hostname Fact
+  set_fact:
+    _consul_agent_tmp_restart_host: '{{ _consul_agent_restart_host  }}'
+
+- name: RESTART SERVER SERVICE - Attempt to Acquire Lock Key
+  include: 'functions/kv_acquire_lock.yml'
+  vars:
+    key_url: '{{ _consul_agent_uri_kv_res }}'
+    session_id: '{{ _consul_agent_session.json.ID }}'
+  when: inventory_hostname == _consul_agent_tmp_restart_host
+
+- block:
+  - name: RESTART SERVER SERVICE - Ensure All Peers Available
+    include: 'functions/get_peer_status.yml'
+
+  - name: RESTART SERVER SERVICE - Ensure a Leader is Present Before Restarting Service
+    include: 'functions/get_leader.yml'
+
+  - name: RESTART SERVER SERVICE - Restart Consul Agent Service
+    service: name=consul enabled=true state=restarted
+
+  - name: RESTART SERVER SERVICE - Wait for HTTP Service to be Ready
+    wait_for:
+      host: '{{ consul_agent_http_host }}'
+      port: '{{ consul_agent_http_port }}'
+      state: started
+
+  - name: RESTART SERVER SERVICE - Ensure Server has Joined Cluster
+    include: 'functions/get_peer_status.yml'
+
+  - name: RESTART SERVER SERVICE - Attempt to Release Lock
+    include: 'functions/kv_release_lock.yml'
+    vars:
+      key_url: '{{ _consul_agent_uri_kv_res }}'
+      session_id: '{{ _consul_agent_session.json.ID }}'
+
+  when: (_consul_agent_lock_acquired is defined) and
+        (_consul_agent_lock_acquired.json is defined) and
+        (_consul_agent_lock_acquired.json|bool == true)

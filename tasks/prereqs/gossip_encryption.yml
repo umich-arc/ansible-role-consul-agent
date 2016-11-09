@@ -1,0 +1,49 @@
+---
+
+# Bootstrap host will generate the gossip encryption key. The other hosts will retry/sleep
+# at the 'Reload Consul Security Settings' task until the security config is populated,
+# then move to the next set of tasks.
+
+- name: PREREQS GOSSIP ENCRYPTION - Generate Consul Gossip Encryption Key
+  shell: "tr -dc 'a-zA-Z0-9-!@#$%^&*()_+~' < /dev/urandom 2>/dev/null | head -c 16 | base64"
+  environment:
+    LC_ALL: C
+  register: _consul_agent_gossip_encrypt_key
+  when: (consul_agent_sec_cfg.encrypt == '') and
+        (inventory_hostname == consul_agent_bootstrap_host)
+
+- name: PREREQS GOSSIP ENCRYPTION - Update Security Settings with Gossip Encryption Key
+  set_fact:
+    consul_agent_sec_cfg: "{{ consul_agent_sec_cfg|combine(
+      {'encrypt': _consul_agent_gossip_encrypt_key.stdout}
+    ) }}"
+  when: _consul_agent_gossip_encrypt_key.changed
+
+- name: PREREQS GOSSIP ENCRYPTION - Save Security Settings
+  include: '../functions/save_security_settings.yml'
+  vars:
+    content: "{{ {'consul_agent_sec_cfg': consul_agent_sec_cfg}|to_nice_json }}"
+  when: _consul_agent_gossip_encrypt_key.changed
+
+- name: PREREQS GOSSIP ENCRYPTION - Reload Consul Security Settings
+  delegate_to: 127.0.0.1
+  include_vars: '{{ consul_agent_security_config_file.path }}'
+  until: (consul_agent_sec_cfg.encrypt is defined) and
+         (consul_agent_sec_cfg.encrypt != '')
+  delay: '{{ consul_agent_check_retries }}'
+  retries: '{{ consul_agent_check_delay }}'
+
+- name: PREREQS GOSSIP ENCRYPTION - Merge Gossip Encryption Key with Config
+  set_fact:
+    consul_agent_config: "{{ consul_agent_config|combine(
+      {'encrypt': consul_agent_sec_cfg.encrypt}
+    ) }}"
+  when: consul_agent_config is defined
+
+- name: PREREQS GOSSIP ENCRYPTION - Add Encryption Keys to Opts
+  set_fact:
+    consul_agent_opts: "{{ consul_agent_opts|combine(
+      {'encrypt': [consul_agent_sec_cfg.encrypt]}
+    ) }}"
+  when: (consul_agent_config is not defined) and
+        (consul_agent_opts is defined)

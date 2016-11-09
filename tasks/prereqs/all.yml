@@ -1,0 +1,60 @@
+---
+
+- name: PREREQS ALL - Set Consul Agent Facts
+  set_fact:
+    _consul_agent_user: '{{ consul_agent_user|default({})|combine(_consul_agent_user_defaults) }}'
+    _consul_agent_group: '{{ (consul_agent_group|default({}))|combine(_consul_agent_group_defaults) }}'
+    _consul_agent_distro_pkgs: "{{ _consul_agent_pkgs
+      [(ansible_distribution|lower ~ '-' ~ ansible_distribution_major_version)]
+    }}"
+    _consul_agent_archive_name: "{{ 'consul_' ~ consul_agent_version ~ '_' ~
+      _consul_agent_platform[ansible_system|lower][ansible_architecture] ~ '.zip'
+    }}"
+    _consul_agent_checksums_name: "{{ 'consul_' ~ consul_agent_version ~ '_SHA256SUMS' }}"
+
+- name: PREREQS ALL - Update Consul Agent Opts With Config Path
+  set_fact:
+    consul_agent_opts: "{{ consul_agent_opts|combine({'config-dir': consul_agent_config_dir}) }}"
+  when: (consul_agent_config_dir is defined) and
+        (consul_agent_opts['config-dir'] is not defined)
+
+- name: PREREQS ALL - Update Consul Agent Opts With Data Path
+  set_fact:
+    consul_agent_opts: "{{ consul_agent_opts|combine({'data-dir': consul_agent_data_dir}) }}"
+  when: (consul_agent_data_dir is defined) and
+        (consul_agent_opts['data-dir'] is not defined) and
+        (consul_agent_config.data_dir is not defined)
+
+- name: PREREQS ALL - Generate Consul Agent Download URLs
+  set_fact:
+    _consul_agent_archive_url: "{{ [consul_agent_baseurl, consul_agent_version,
+      _consul_agent_archive_name]|join('/')
+    }}"
+    _consul_agent_checksums_url: "{{ [consul_agent_baseurl, consul_agent_version,
+      _consul_agent_checksums_name]|join('/')
+    }}"
+
+- name: PREREQS ALL - Create Consul Group
+  group:
+    name: '{{ _consul_agent_group.name }}'
+    gid: '{{ _consul_agent_group.gid|default(omit) }}'
+    system: '{{ _consul_agent_group.system }}'
+    state: present
+
+- name: PREREQS ALL - Create Consul User
+  user:
+    name: '{{ _consul_agent_user.name }}'
+    uid: '{{ _consul_agent_user.uid|default(omit) }}'
+    group: '{{ _consul_agent_user.group|default(_consul_agent_group.name) }}'
+    comment: '{{ _consul_agent_user.comment }}'
+    shell: '{{ _consul_agent_user.shell  }}'
+    system: '{{ _consul_agent_user.system|default(true) }}'
+    state: present
+
+- name: PREREQS ALL - Install Consul Agent Prereqs
+  package: name='{{ item }}' state=present
+  register: _consul_agent_prereqs_installed
+  with_items: '{{ _consul_agent_distro_pkgs }}'
+  until: _consul_agent_prereqs_installed|succeeded
+  delay: '{{ consul_agent_check_retries }}'
+  retries: '{{ consul_agent_check_delay }}'

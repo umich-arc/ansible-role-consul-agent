@@ -1,0 +1,13 @@
+---
+
+- name: FUNCTION - session_renew
+  uri:
+    url: "{{ [_consul_agent_uri_srenew, session_id]|join('/') }}"
+    user: '{{ consul_agent_http_user|default(omit) }}'
+    password: '{{ consul_agent_http_pass|default(omit) }}'
+    HEADER_X-Consul-Token: '{{ consul_agent_sec_cfg.acl.master_token|default(omit) }}'
+    method: PUT
+  register: _consul_agent_session_renew
+  until: _consul_agent_session_renew.status == 200
+  delay: '{{ consul_agent_check_delay }}'
+  retries: '{{ consul_agent_check_retries }}'

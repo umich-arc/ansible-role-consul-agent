@@ -1,0 +1,47 @@
+---
+
+# Bootstrap host will generate the acl master token. The other hosts will retry/sleep
+# at the 'Reload Consul Security Settings' task until the security config is populated,
+# then move to the next set of tasks.
+
+- name: PREREQS ACL - Generate Consul Master ACL Token
+  shell: 'uuidgen | tr "[:upper:]" "[:lower:]"'
+  environment:
+    LC_ALL: C
+  register: _consul_agent_acl_master_token
+  when: (consul_agent_sec_cfg.acl.master_token == '') and
+        (inventory_hostname == consul_agent_bootstrap_host)
+
+- name: PREREQS ACL - Update Security Settings with ACL Master Token
+  set_fact:
+    consul_agent_sec_cfg: "{{ consul_agent_sec_cfg|combine(
+      {'acl': {'master_token': _consul_agent_acl_master_token.stdout}}, recursive=true
+    ) }}"
+  when: _consul_agent_acl_master_token.changed
+
+- name: PREREQS ACL - Save Security Settings
+  include: '../functions/save_security_settings.yml'
+  vars:
+    content: "{{ {'consul_agent_sec_cfg': consul_agent_sec_cfg}|to_nice_json }}"
+  when: _consul_agent_acl_master_token.changed
+
+- name: PREREQS ACL - Reload Consul Security Settings
+  delegate_to: 127.0.0.1
+  include_vars: '{{ consul_agent_security_config_file.path }}'
+  until: consul_agent_sec_cfg.acl.master_token != ''
+  delay: '{{ consul_agent_check_retries }}'
+  retries: '{{ consul_agent_check_delay }}'
+
+- name: PREREQS ACL - Merge ACL Master Token with Config
+  set_fact:
+    consul_agent_config: "{{ consul_agent_config|combine(
+      {'acl_master_token': consul_agent_sec_cfg.acl.master_token}
+    ) }}"
+  when: consul_agent_config.acl_master_token is not defined
+
+- name: PREREQS ACL - Set ACL Datacenter
+  set_fact:
+    consul_agent_config: "{{ consul_agent_config|combine(
+      {'acl_datacenter': _consul_agent_dc}
+    ) }}"
+  when: consul_agent_config.acl_datacenter is not defined

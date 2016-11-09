@@ -1,0 +1,57 @@
+---
+
+# Attempt to load the security config. If the file does not exist or the file does not contain
+# the security schema, 'sleep' and attempt to load again, UNLESS the host is the bootstrap host.
+# The bootstrap host will move onto the the creation steps, and once done the other nodes will
+# read the file successfully and move to the next steps.
+
+- name: PREREQS SECURITY - Get Bootstrap Host
+  set_fact:
+    consul_agent_bootstrap_host: '{{ consul_agent_bootstrap_host|default(
+      groups[consul_agent_server_group][0]
+    ) }}'
+  when: (consul_agent_server_group is defined) and
+        ((consul_agent_opts.server is defined) or (consul_agent_config.server is defined))
+
+- name: PREREQS SECURITY - Load Consul Security Settings
+  delegate_to: 127.0.0.1
+  include_vars: '{{ consul_agent_security_config_file.path }}'
+  ignore_errors: true
+  register: _consul_agent_sec_cfg_loaded
+  until: ((_consul_agent_sec_cfg_loaded|succeeded) and (consul_agent_sec_cfg is defined)) or
+         (inventory_hostname == consul_agent_bootstrap_host)
+  delay: '{{ consul_agent_check_retries }}'
+  retries: '{{ consul_agent_check_delay }}'
+
+- name: PREREQS SECURITY - Create Security Config Directory
+  delegate_to: 127.0.0.1
+  file: path='{{ consul_agent_security_config_file.path|dirname }}' state=directory
+  when: (_consul_agent_sec_cfg_loaded|failed) and
+        (inventory_hostname == consul_agent_bootstrap_host)
+
+- name: PREREQS SECURITY - Create Security Settings Skeleton
+  include: '../functions/save_security_settings.yml'
+  vars:
+    content: >
+      {{
+        {
+          'consul_agent_sec_cfg': {
+            'encrypt': '',
+            'acl': {
+              'master_token': '',
+              'uuid': {},
+              'acls': {}
+            }
+          }
+        }|to_nice_json
+      }}
+  when: (_consul_agent_sec_cfg_loaded|failed) and
+        (inventory_hostname == consul_agent_bootstrap_host)
+
+- name: PREREQS SECURITY - Reload Consul Security Settings
+  delegate_to: 127.0.0.1
+  include_vars: '{{ consul_agent_security_config_file.path }}'
+  until: consul_agent_sec_cfg is defined
+  retries: '{{ consul_agent_check_delay }}'
+  delay: '{{ consul_agent_check_retries }}'
+  when: _consul_agent_sec_cfg_loaded|failed

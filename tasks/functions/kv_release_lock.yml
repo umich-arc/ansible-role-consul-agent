@@ -1,0 +1,15 @@
+---
+
+- name: FUNCTION - kv_release_lock
+  uri:
+    url: "{{ key_url ~ '?release=' ~ session_id }}"
+    user: '{{ consul_agent_http_user|default(omit) }}'
+    password: '{{ consul_agent_http_pass|default(omit) }}'
+    HEADER_X-Consul-Token: '{{ consul_agent_sec_cfg.acl_master_token|default(omit) }}'
+    method: PUT
+    return_content: true
+    register: _consul_agent_lock_released
+    until: (_consul_agent_lock_released.json is defined) and
+           (_consul_agent_lock_released.json|bool == true)
+  delay: '{{ consul_agent_check_delay }}'
+  retries: '{{ consul_agent_check_retries }}'

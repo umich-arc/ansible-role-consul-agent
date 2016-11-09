@@ -1,0 +1,15 @@
+---
+
+- name: FUNCTION - kv_create
+  uri:
+    url: '{{ key_url }}'
+    user: '{{ consul_agent_http_user|default(omit) }}'
+    password: '{{ consul_agent_http_pass|default(omit) }}'
+    HEADER_X-Consul-Token: '{{ consul_agent_sec_cfg.acl.master_token|default(omit) }}'
+    method: PUT
+    return_content: true
+    body: '{{ key_body }}'
+  register: _consul_agent_key_created
+  until: _consul_agent_key_created.status == 200
+  delay: '{{ consul_agent_check_delay }}'
+  retries: '{{ consul_agent_check_retries }}'

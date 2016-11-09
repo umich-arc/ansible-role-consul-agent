@@ -1,0 +1,9 @@
+---
+
+- name: PREREQS RPC ENCRYPTION - Add Consul Agent Certificates to Config
+  set_fact:
+    consul_agent_config: "{{ consul_agent_config|combine({item.key: item.value}, recursive=true) }}"
+  with_items:
+    - {key: 'ca_file', value: "{{ [consul_agent_certs_dir, 'ca.crt']|join('/') }}"}
+    - {key: 'cert_file', value: "{{ [consul_agent_certs_dir, 'consul.crt']|join('/') }}"}
+    - {key: 'key_file', value: "{{ [consul_agent_certs_dir, 'consul.key']|join('/') }}"}

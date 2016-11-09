@@ -1,0 +1,90 @@
+---
+
+- name: PREREQS SERVER - Generate Consul Agent HTTP Scheme
+  set_fact:
+    consul_agent_http_scheme: >
+      {%- if (consul_agent_config.ports is defined) and
+             (consul_agent_config.ports.https is defined) -%}
+        https
+      {%- else -%}
+        http
+      {%- endif -%}
+  when: consul_agent_http_scheme is not defined
+
+- name: PREREQS SERVER - Generate Consul Agent HTTP Host
+  set_fact:
+    consul_agent_http_host: >
+      {%- if consul_agent_opts.client is defined -%}
+        {{ consul_agent_opts.client[0] }}
+      {%- elif (consul_agent_config.addresses is defined) and
+               (consul_agent_config.addresses.https is defined) -%}
+        {{ consul_agent_config.addresses.https }}
+      {%- elif (consul_agent_config.addresses is defined) and
+               (conconsul_agent_config.addresses.http) is defined -%}
+        {{ consul_agent_config.addresses.http }}
+      {%- elif consul_agent_opts.bind is defined -%}
+        {{ consul_agent_opts.bind[0] }}
+      {%- elif consul_agent_config.bind_addr is defined -%}
+        {{ consul_agent_config.bind_addr }}
+      {%- else -%}
+        127.0.0.1
+      {%- endif -%}
+  when: consul_agent_http_host is not defined
+
+- name: PREREQS SERVER - Generate Consul Agent HTTP Port
+  set_fact:
+    consul_agent_http_port: >
+      {%- if consul_agent_opts['http-port'] is defined -%}
+        {{ consul_agent.opts['http-port'][0] }}
+      {%- elif (consul_agent_config.ports is defined) and
+               (consul_agent_config.ports.https is defined) -%}
+        {{ consul_agent_config.ports.https }}
+      {%- elif (consul_agent_config.ports is defined) and
+               (consul_agent_config.ports.http is defined) -%}
+        {{ consul_agent_config.ports.https }}
+      {%- else -%}
+        8500
+      {%- endif -%}
+  when: consul_agent_http_port is not defined
+
+- name: PREREQS SERVER - Generate Consul Agent Datacenter
+  set_fact:
+    _consul_agent_dc: >
+      {%- if consul_agent_opts.dc is defined -%}
+        {{ consul_agent_opts.dc[0] }}
+      {%- elif consul_agent_config.dc is defined -%}
+        {{ consul_agent_config.dc }}
+      {%- else -%}
+        dc1
+      {%- endif -%}
+
+- name: PREREQS SERVER - Update Consul HTTP Facts
+  set_fact:
+    consul_agent_http_scheme: '{{ consul_agent_http_scheme|trim }}'
+    consul_agent_http_host: '{{ consul_agent_http_host|trim }}'
+    consul_agent_http_port: '{{ consul_agent_http_port|trim }}'
+    consul_agent_http_api_version: "{{ consul_agent_http_api_version|default('v1') }}"
+
+- name: PREREQS SERVER - Generate Consul Server Facts
+  set_fact:
+    _consul_agent_dc: '{{ _consul_agent_dc|trim }}'
+    _consul_agent_api_endpoint: "{{ consul_agent_http_scheme ~ '://' ~ consul_agent_http_host ~
+      ':' ~ consul_agent_http_port ~ '/' ~ consul_agent_http_api_version
+   }}"
+
+- name: PREREQS SERVER - Generate Consul Agent URIs
+  set_fact:
+    _consul_agent_uri_kv_res: "{{ [_consul_agent_api_endpoint, 'kv', consul_agent_kv_restart]|
+      join('/')
+    }}"
+    _consul_agent_uri_kv_acl: "{{ [_consul_agent_api_endpoint, 'kv', consul_agent_kv_acl]|
+      join('/')
+    }}"
+    _consul_agent_uri_leader: "{{ [_consul_agent_api_endpoint, 'status/leader']|join('/') }}"
+    _consul_agent_uri_status: "{{ [_consul_agent_api_endpoint, 'status/peers']|join('/') }}"
+    _consul_agent_uri_screate: "{{ [_consul_agent_api_endpoint, 'session/create']|join('/') }}"
+    _consul_agent_uri_sdestroy: "{{ [_consul_agent_api_endpoint, 'session/destroy']|join('/') }}"
+    _consul_agent_uri_srenew: "{{ [_consul_agent_api_endpoint, 'session/renew']|join('/') }}"
+    _consul_agent_uri_acreate: "{{ [_consul_agent_api_endpoint, 'acl/create']|join('/') }}"
+    _consul_agent_uri_adestroy: "{{ [_consul_agent_api_endpoint, 'acl/destroy']|join('/') }}"
+    _consul_agent_uri_aupdate: "{{ [_consul_agent_api_endpoint, 'acl/update']|join('/') }}"

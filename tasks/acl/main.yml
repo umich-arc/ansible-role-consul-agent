@@ -1,0 +1,50 @@
+---
+
+# There is quite a few repeated actions in the acl section of this role. The intent in that
+# decision is to prevent possible acl duplication or errors in the event of a failure during
+# a playbook run.
+
+# Similar to restarting a server, acl updates are handled by a single node at a time via
+# semaphore locks on the consul acl key.
+
+- name: ACL - Wait for HTTP Service to be Ready
+  include: '../functions/get_leader.yml'
+
+- name: ACL - Wait for All peers to be Ready.
+  include: '../functions/get_peer_status.yml'
+
+- name: ACL - Check for Consul ACL Lock Key
+  include: '../functions/kv_exist.yml'
+  vars:
+    key_url: '{{ _consul_agent_uri_kv_acl }}'
+
+- name: ACL - Create Consul ACL Lock Key
+  include: '../functions/kv_create.yml'
+  vars:
+    key_url: '{{ _consul_agent_uri_kv_acl }}'
+    key_body: 'true'
+  when: _consul_agent_key_exist|failed
+
+- name: ACL - Obtain A Consul Session
+  include: '../functions/session_create_with_ttl.yml'
+  vars:
+    ttl: '{{ consul_agent_check_ttl }}'
+
+- name: ACL - Execute ACL Tasks
+  include: 'execute_acl_tasks.yml'
+  loop_control:
+    loop_var: _consul_agent_acl_host
+  with_items: '{{ (groups[consul_agent_server_group|default(none)])|default([]) }}'
+
+- name: ACL - Attempt to Release Lock on Key
+  include: '../functions/kv_release_lock.yml'
+  vars:
+    key_url: '{{ _consul_agent_uri_kv_acl }}'
+    session_id: '{{ _consul_agent_session.json.ID }}'
+  when: (_consul_agent_lock_acquired.json is defined) and
+        (_consul_agent_lock_acquired.json|bool == true)
+
+- name: ACL - Attempt to Destroy Session Key
+  include: '../functions/session_destroy.yml'
+  vars:
+    session_id: '{{ _consul_agent_session.json.ID }}'

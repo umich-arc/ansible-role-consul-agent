@@ -1,0 +1,31 @@
+---
+
+- name: FUNCTION - get_acl - Load Security Configuration
+  delegate_to: 127.0.0.1
+  include_vars: '{{ consul_agent_security_config_file.path }}'
+
+- name: FUNCTION - get_acl - Generate List of ACLs to Destroy
+  set_fact:
+    _consul_agent_acl_destroy: '{{ (_consul_agent_acl_destroy|default({}))|combine(
+      {item.key: item.value}
+    ) }}'
+  when: (consul_agent_acls is defined) and (consul_agent_acls[item.key] is not defined)
+  with_dict: '{{ consul_agent_sec_cfg.acl.uuid }}'
+
+- name: FUNCTION - get_acl - Generate List of ACLs to Create
+  set_fact:
+    _consul_agent_acl_create: '{{ (_consul_agent_acl_create|default({}))|combine(
+      {item.key: item.value}
+   ) }}'
+  when: (consul_agent_acls is defined) and (consul_agent_sec_cfg.acl.uuid[item.key] is not defined)
+  with_dict: '{{ consul_agent_acls }}'
+
+- name: FUNCTION - get_acl - Generate List of ACLs to Update
+  set_fact:
+    _consul_agent_acl_update: '{{ (_consul_agent_acl_update|default({}))|combine(
+      {item.key: item.value}
+    ) }}'
+  when: (consul_agent_acls is defined) and
+        (consul_agent_sec_cfg.acl.acls[item.key] is defined) and
+        (consul_agent_acls[item.key] != consul_agent_sec_cfg.acl.acls[item.key])
+  with_dict: '{{ consul_agent_acls }}'

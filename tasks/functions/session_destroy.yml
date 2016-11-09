@@ -1,0 +1,14 @@
+---
+
+- name: FUNCTION - session_destroy
+  uri:
+    url: "{{ [_consul_agent_uri_sdestroy, session_id]|join('/') }}"
+    user: '{{ consul_agent_http_user|default(omit) }}'
+    password: '{{ consul_agent_http_pass|default(omit) }}'
+    HEADER_X-Consul-Token: '{{ consul_agent_sec_cfg.acl.master_token|default(omit) }}'
+    method: PUT
+    return_content: true
+  register: _consul_agent_session_deleted
+  until: _consul_agent_session_deleted.status == 200
+  delay: '{{ consul_agent_check_delay }}'
+  retries: '{{ consul_agent_check_retries }}'

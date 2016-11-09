@@ -1,0 +1,53 @@
+---
+
+# We reload the config and do a double check of the key being present to short circuit the parent
+# include loop in the event of a failure during a run. This prevents the key from being updated
+# twice.
+
+- name: UPDATE ACL - Reload Consul Security Settings
+  delegate_to: 127.0.0.1
+  include_vars: '{{ consul_agent_security_config_file.path }}'
+
+- name: UPDATE ACL - Check if ACL Update Should Continue
+  set_fact:
+    _consul_agent_acl_tmp_ucheck: >
+      {%- if (consul_agent_sec_cfg.acl.uuid[item.key] is defined) and
+             (item.value != consul_agent_sec_cfg.acl.acls[item.key]) -%}
+        true
+      {%- else -%}
+        false
+      {%- endif -%}
+
+- block:
+  - name: UPDATE ACL - Ensure Consul Service is Available
+    include: '../functions/get_leader.yml'
+
+  - name: UPDATE ACL - Attempt to Update ACL
+    uri:
+      url: '{{ _consul_agent_uri_aupdate }}'
+      user: '{{ consul_agent_http_user|default(omit) }}'
+      password: '{{ consul_agent_http_pass|default(omit) }}'
+      HEADER_X-Consul-Token: '{{ consul_agent_sec_cfg.acl.master_token|default(omit) }}'
+      method: PUT
+      return_content: true
+      body_format: json
+      body: "{{ (item.value|combine({'ID': consul_agent_sec_cfg.acl.uuid[item.key]}))|to_json }}"
+    register: _consul_agent_updated_acl
+
+  - name: UPDATE ACL - Update Security Config
+    set_fact:
+      consul_agent_sec_cfg: "{{ consul_agent_sec_cfg|combine(
+        {
+          'acl': {
+            'acls': consul_agent_sec_cfg.acl.acls|combine({item.key: item.value }),
+          }
+        }, recursive=true
+      ) }}"
+    when: _consul_agent_updated_acl is defined
+
+  - name: UPDATE ACL - Save Updated Security Settings
+    include: '../functions/save_security_settings.yml'
+    vars:
+      content: "{{ {'consul_agent_sec_cfg': consul_agent_sec_cfg}|to_nice_json }}"
+
+  when: _consul_agent_acl_tmp_ucheck|trim|bool == true

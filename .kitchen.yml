@@ -1,0 +1,50 @@
+---
+driver:
+  name: vagrant
+  vagrantfile_erb: Vagrantfile_local.erb
+
+provisioner:
+  name: ansible_playbook
+  hosts: 'consul_servers'
+  sudo_command: sudo -E -H
+  role_name: consul-agent
+  require_ansible_repo: false
+  require_ansible_source: true
+  require_ansible_omnibus: true
+  require_chef_for_busser: false
+  require_ruby_for_busser: false
+  ansible_verbose: true
+  ansible_verbosity: warn
+  idempotency_test: true
+
+verifier:
+  name: shell
+
+suites:
+  - name: consul-agent
+    provisioner:
+      playbook: tests/vagrant/consul.yml
+    verifier:
+      command: PLAYBOOK=tests/vagrant/consul.yml bundle exec rspec -c -I serverspec
+
+
+platforms:
+  - name: centos-7
+    driver_config:
+      box: bento/centos-7.2
+      box_url: https://atlas.hashicorp.com/bento/boxes/centos-7.2
+
+  - name: debian-8
+    driver_config:
+      box: bento/debian-8.5
+      box_url: https://atlas.hashicorp.com/bento/debian-8.5
+
+  - name: ubuntu-1404
+    driver_config:
+      box: bento/ubuntu-14.04
+      box_url: https://atlas.hashicorp.com/bento/ubuntu-14.04
+
+  - name: ubuntu-1604
+    driver_config:
+      box: bento/ubuntu-16.04
+      box_url: https://atlas.hashicorp.com/bento/ubuntu-16.04

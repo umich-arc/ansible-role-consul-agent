@@ -1,0 +1,28 @@
+---
+# vars file for ansible-role-consul
+
+_consul_agent_user_defaults:
+  name: consul
+  system: true
+  comment: 'Consul User'
+  shell: '/bin/bash'
+
+_consul_agent_group_defaults:
+  name: consul
+  system: true
+
+_consul_agent_platform:
+  linux:
+    x86_64: 'linux_amd64'
+    i386: 'linux_386'
+
+_consul_agent_pkgs:
+  centos-7:
+    - unzip
+  debian-8:
+    - unzip
+    - uuid-runtime
+  ubuntu-14:
+    - unzip
+  ubuntu-16:
+    - unzip

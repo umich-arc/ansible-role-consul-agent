@@ -1,0 +1,225 @@
+---
+
+# ------------------------------
+# Execution Control and Security
+# ------------------------------
+#
+# consul_agent_security_no_log: If true, any action that could contain a potential secret will not
+#   be logged. This does set the no_log option for the majority of the role.
+#
+# consul_agent_manage_acls: Allows the role to manage ACLs. This will automatically create a master
+#   token, as well as create, update, or delete ACLs managed via the consul_agent_acls hash. It will
+#   NOT impact ACLs created outside of Ansible. When using tokens on consul clients or for use in
+#   other roles, their token may be accessed via consul_agent_sec_cfg.acl.uuid[<acl name>] hash.
+#   This hash contains a mapping of user defined ACL names to UUIDs, and is saved on the Ansible
+#   master in a json file controlled by the consul_agent_security_config_file variable.
+#
+# consul_agent_manage_gossip_encryption: If enabled, The role will automatically generate a gossip
+#   encryption key and inject it into the config of every node. The encryption key is saved on the
+#   Ansible master in a json file controlled by the consul_agent_security_config_file variable.
+#
+# consul_agent_manage_rcp_encryption: When true, the role will inject the certificate information
+#   supplied by the consul_agent_rpc_cert_* variables into their associated files and add them
+#   to the consul agent config. Note: This does NOT fully configure rpc encryption, options such
+#   verify_server_hostname, verify_incoming, and verify_outgoing must be managed via the
+#   consul_agent_config hash variable.
+#
+# consul_agent_server_group: The name of the ansible group containing the consul servers.
+#
+# consul_agent_bootstrap_host: A consul server host that will handle the initial bootstrapping
+#  of the consul security configuration. This includes both gossip encryption and acl master
+#  token generation. If not supplied, the first host as defined in the consul_agent_server_group
+#  will be used.
+#
+# consul_agent_security_config_file: A json file on the Ansible Master that is used to store the
+#   security configuration of the consul cluster. This file MUST have read/write permissions by
+#   the user executing ansible.
+#
+# consul_agent_rpc_encrypt_ca: The PEM-encoded CA certificate used to check both client and server
+#   connections. If supplied, the ca_file config option will be added automatically.
+#
+# consul_agent_rpc_encrypt_cert: The PEM-encoded certificate that is used for both client and server
+#   connections. If supplied, the cert_file config option will be added automatically.
+#
+# consul_agent_rpc_encrypt_key: The PEM-encoded private key used to with the certificate to validate
+#   the consul Agent's authenticity. MUST be supplied with certificate referenced with
+#   consul_agent_rpc_encrypt_cert. If supplied, the key_file config option will be added automatically.
+#
+# consul_agent_check_delay: Global amount of time to wait between retries for actions that could
+#   possibly fail.
+#
+# consul_agent_check_retries: Global number of retries for actions that could possibly fail, yes
+#   should continue to try. Examples include http checks or package downloads
+#
+# consul_agent_check_ttl: The session TTL for use with consul locks. At this time, only used with
+#   ACL locks.
+#
+# consul_agent_kv_acl: The key name of the key:value pair used when managing acls.
+#
+# consul_agent_kv_restart: The key name of the key:value pair used when coordinating restarts of
+#   the consul service.
+#
+
+consul_agent_security_no_log: false
+
+consul_agent_manage_gossip_encryption: true
+consul_agent_manage_rpc_encryption: false
+consul_agent_manage_acls: true
+
+# consul_agent_server_group:
+# consul_agent_bootstrap_host:
+
+consul_agent_security_config_file:
+  path: '/etc/consul/security.json'
+  owner: root
+  group: root
+  mode: '0640'
+
+# consul_agent_rpc_encrypt_ca:
+# consul_agent_rpc_encrypt_cert:
+# consul_agent_rpc_encrypt_key:
+
+consul_agent_check_delay: 30
+consul_agent_check_retries: 20
+consul_agent_check_ttl: 300
+
+consul_agent_kv_acl: 'locks/consul/acl'
+consul_agent_kv_restart: 'locks/consul/restart'
+
+
+# ------------------------------
+# Download and Versioning
+# ------------------------------
+#
+# consul_agent_baseurl: The baseurl to use when downloading consul. If using something other than
+#   the default, ensure that the download schema is followed:
+#   <baseurl>/<version>/consul_<version>_linux_[amd64|386].zip
+#
+# consul_agent_version: The version of consul to download and install.
+#
+# consul_agent_verify_checksums: If true, it will download the sha256 checksums and verify
+#   the downloaded file matches. The hash file must be in the same directory as the zip and have
+#   a filename matching consul_<version>_SHA256SUMS
+
+consul_agent_baseurl: 'https://releases.hashicorp.com/consul'
+consul_agent_version: '0.6.4'
+consul_agent_verify_checksum: true
+
+
+
+# ------------------------------
+# User and Directories Config
+# ------------------------------
+#
+# consul_agent_user: A hash dictating the defaults for the consul User.
+#   name: The name of the consul user (default: consul)
+#   uid: If supplied, the uid of the user will be set to this value.
+#   system: Boolean specifying if the account should be a system account or not (default: true)
+#   comment: The comment or GECOS to assign to the user account (default: 'Consul User')
+#   shell: The default shell of the consul user. WILL ALSO be used for instances with scripts or
+#     consul exec. (default: '/bin/bash')
+#
+# consul_agent_group: A hash dicting the defaults for the consul group
+#   name: The name of the consul group (default: consul)
+#   gid: If supplied, the gid of the group will be set to this value.
+#   system: Boolean specifying if the account should be a system account or not (default: true)
+#
+# consul_agent_config_dir: The path to consul config directory. When supplied, it will
+#   automatically be added to the consul daemon opts.
+#
+# consul_agent_data_dir: The path to the consul data directory. When supplied, it will
+#   automatically be added to the consul daemon opts.
+#
+# consul_agent_scripts_dir: The path to the directory which will act as home for all scripts
+#   managed by the consul-agent role.
+#
+# consul_agent_certs_dir: The path to the directory which will house the certificates managed
+#   by the consul-agent role.
+#
+# consul_agent_log_dir: The directory in which consul logs will be saved. NOTE: Only applicable
+#   to non systemd based systems.
+
+
+#consul_agent_user:
+#  name: consul
+
+#consul_agent_group:
+#  name: consul
+
+consul_agent_config_dir: '/etc/consul/conf.d'
+consul_agent_data_dir: '/var/lib/consul/data'
+consul_agent_scripts_dir: '/var/lib/consul/scripts'
+consul_agent_certs_dir: '/etc/consul/certs'
+consul_agent_log_dir: '/var/log/consul'
+
+
+
+# ------------------------------
+# HTTP endpoint Settings
+# ------------------------------
+#
+# All the http endpoint settings are optional and will be inferred by the variables supplied
+# in either consul_agent_opts or consul_agent_config. HOWEVER, these should be supplied if
+# intending to use consul behind a reverse proxy. e.g. nginx for ssl termination or using
+# some form of http auth.
+#
+# consul_agent_http_scheme: The http api endpoint URI scheme.
+#
+# consul_agent_http_host: The http api endpoint host address.
+#
+# consul_agent_http_port: The http api endpoint port.
+#
+# consul_agent_api_version: The Consul http api version.
+#
+# consul_agent_http_user: The username to supply when connecting with http basic auth.
+#
+# consul_agent_http_password: The password to supply when connecting with http basic auth.
+#
+
+# consul_agent_http_scheme:
+# consul_agent_http_host:
+# consul_agent_http_port:
+# consul_agent_http_api_version:
+# consul_agent_http_user:
+# consul_agent_http_password:
+
+
+
+
+# ------------------------------
+# Consul Agent Config
+# ------------------------------
+#
+# consul_agent_opts: A hash of key:array of options that will supplied to the consul agent.
+#   Options are supplied in the form of key:array to handle items such as 'join' where it can
+#   be supplied multiple times.
+#
+# consul_agent_config: A hash of items that will be converted to json and used for the consul
+#   agent configuration.
+#
+# consul_agent_acls: A hash of ACLs that the role will manage. They MUST supplied in the form
+#   of '<ansible acl name>: { <acl definition> }'. The ansible acl name will act as a unique
+#   key to lookup the uuid of the acl when performing acl create/update/delete operations.
+#   See the example playbooks as a reference.
+#
+# consul_agent_checks: A hash that will be converted to json to be used as the checks
+#   config. See the example playbooks as a reference.
+#
+# consul_agent_scripts: An array of files (path required) to be synced to the remote system and
+#   stored in the consul_agent_scripts_dir.
+#
+# consul_agent_services: A hash that will be converted to json to be used as the services
+#   config. See the example playbooks as a reference.
+#
+# consul_agent_watches: A hash that will be converted to json to be used as the watches
+#   config. See the example playbooks as a reference.
+
+
+consul_agent_opts: {}
+consul_agent_config: {}
+
+consul_agent_acls: {}
+consul_agent_checks: {}
+consul_agent_scripts: []
+consul_agent_services: {}
+consul_agent_watches: {}

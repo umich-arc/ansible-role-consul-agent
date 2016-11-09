@@ -1,0 +1,28 @@
+---
+
+- name: INSTALL - Get Archive Checksums
+  include: 'functions/get_checksums.yml'
+  when: (consul_agent_verify_checksum is defined) and
+        (consul_agent_verify_checksum|bool == true)
+
+- name: INSTALL - Download Consul Agent
+  get_url:
+    url: '{{ _consul_agent_archive_url }}'
+    checksum: "{{ 'sha256:' ~ _consul_agent_archive_checksum.stdout|default(omit) }}"
+    dest: /tmp
+  register: _consul_agent_download_agent_archive
+  until: _consul_agent_download_agent_archive|succeeded
+  delay: '{{ consul_agent_check_delay }}'
+  retries: '{{ consul_agent_check_retries }}'
+
+- name: INSTALL - Extract Consul Agent
+  unarchive:
+    copy: false
+    src: '/tmp/{{ _consul_agent_archive_name }}'
+    dest: '/usr/local/bin/'
+    owner: root
+    group: '{{ _consul_agent_group.name }}'
+    mode: '0755'
+
+- name: INSTALL - Remove Consul Agent Archive
+  file: path='/tmp/{{ _consul_agent_archive_name}}' state=absent

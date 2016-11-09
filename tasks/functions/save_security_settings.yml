@@ -1,0 +1,10 @@
+---
+
+- name: FUNCTION - save_security_settings
+  delegate_to: 127.0.0.1
+  copy:
+    content: '{{ content }}'
+    dest: '{{ consul_agent_security_config_file.path }}'
+    owner: '{{ consul_agent_security_config_file.owner }}'
+    group: '{{ consul_agent_security_config_file.group }}'
+    mode: '{{ consul_agent_security_config_file.mode }}'

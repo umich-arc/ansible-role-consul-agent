@@ -1,0 +1,13 @@
+---
+
+- name: FUNCTION - get_leader
+  uri:
+    url: '{{ _consul_agent_uri_leader }}'
+    user: '{{ consul_agent_http_user|default(omit) }}'
+    password: '{{ consul_agent_http_pass|default(omit) }}'
+    return_content: true
+  register: _consul_agent_leader
+  until: (_consul_agent_leader.json is defined) and
+         (_consul_agent_leader.json != '')
+  delay: '{{ consul_agent_check_retries }}'
+  retries: '{{ consul_agent_check_delay }}'
