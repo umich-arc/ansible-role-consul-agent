@@ -2,7 +2,9 @@
 
 This role manages most of the components of [Hashicorp's Consul](https://www.consul.io/), including cluster bootstrapping, coordinating rolling service restarts across groups of hosts, and ACL management.
 
-This role has some specific execution requirements, please see the [Usage](#usage) section for more information.
+[![Build Status](https://travis-ci.org/arc-ts/ansible-role-consul-agent.svg?branch=master)](https://travis-ci.org/arc-ts/ansible-role-consul-agent)
+
+**NOTE:** This role has some specific execution requirements, please see the [Usage](#usage) section for more information.
 
 
 

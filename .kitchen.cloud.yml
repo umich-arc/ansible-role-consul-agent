@@ -11,11 +11,17 @@ driver:
   require_chef_omnibus: false
   tags:
     'ansible-role': ansible-role-consul-agent
+<% if ENV['AWS_SUBNET'] %>
+  subnet_id: <%= ENV['AWS_SUBNET'] %>
+<% end %>
+<% if ENV['AWS_IAM_PROFILE'] %>
+  iam_profile_name: <%= ENV['AWS_IAM_PROFILE'] %>
+<% end %>
 
 
 transport:
   ssh_key: <%= ENV['KITCHEN_SSH_KEY'] %>
-  connection_timeout: 60
+  connection_timeout: 120
   connection_retries: 10
   max_ssh_sessions: 4
 
@@ -30,7 +36,7 @@ provisioner:
   require_ansible_omnibus: true
   require_chef_for_busser: false
   require_ruby_for_busser: false
-  ansible_verbose: true
+  ansible_verbose: false
   ansible_verbosity: warn
   idempotency_test: true
 
