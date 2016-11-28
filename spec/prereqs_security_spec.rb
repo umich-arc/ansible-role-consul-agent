@@ -33,7 +33,7 @@ if property['consul_agent_manage_gossip_encryption'] || property['consul_agent_m
       context 'CONSUL_AGENT:PREREQS:SECURITY:GOSSIP' do
         describe 'Gossip Encryption Key' do
           it 'should be a 16-byte base64 value' do
-            expect(consul_agent_sec_cfg['encrypt']).to match(/^[0-9a-z]{22}==$/i)
+            expect(consul_agent_sec_cfg['encrypt']).to match(/^.{22}==$/i)
           end
         end
       end

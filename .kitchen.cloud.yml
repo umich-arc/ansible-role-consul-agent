@@ -45,13 +45,12 @@ verifier:
   name: shell
 
 
-# KITCHEN_SSH_KEY must be set manually as it is not passed during the verification step
 suites:
   - name: consul
     provisioner:
       playbook: tests/vagrant/consul.yml
     verifier:
-      command: KITCHEN_SSH_KEY=<%= ENV['KITCHEN_SSH_KEY'] %> PLAYBOOK=tests/cloud/consul.yml bundle exec rspec -c -I serverspec
+      command: PLAYBOOK=tests/cloud/consul.yml bundle exec rspec -c -I serverspec
 
 
 # Default for centos-7 image is to persist the root volume.
