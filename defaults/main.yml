@@ -4,6 +4,13 @@
 # Execution Control and Security
 # ------------------------------
 #
+# external_dependency_delay: The time in seconds between external dependency retries.
+#   An external dependency is any link, package, cache etc that is to be fetched or
+#   updated.
+#
+# external_dependency_retries: The number of retries to attempt to query an external
+#   dependnecy.
+#
 # consul_agent_security_no_log: If true, any action that could contain a potential secret will not
 #   be logged. This does set the no_log option for the majority of the role.
 #
@@ -59,6 +66,9 @@
 # consul_agent_kv_restart: The key name of the key:value pair used when coordinating restarts of
 #   the consul service.
 #
+
+external_dependency_delay: 20
+external_dependency_retries: 6
 
 consul_agent_security_no_log: false
 

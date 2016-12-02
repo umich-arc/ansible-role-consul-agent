@@ -259,6 +259,8 @@ The settings in this section determine both what and how the components of the r
 #### Defaults
 |                  Variable                 |           Default           |
 |:-----------------------------------------:|:---------------------------:|
+|        `external_dependency_delay`        |             `20`            |
+|       `external_dependency_retries`       |             `6`             |
 |       `consul_agent_security_no_log`      |           `false`           |
 |  `consul_agent_manage_gossip_encryption`  |            `true`           |
 |    `consul_agent_manage_rpc_encryption`   |           `false`           |
@@ -279,6 +281,10 @@ The settings in this section determine both what and how the components of the r
 |         `consul_agent_kv_restart`         |    `locks/consul/restart`   |
 
 #### Description
+
+* **external_dependency_delay** - The time in seconds between external dependency retries. (repos, keyservers, etc)
+
+* **external_dependency_retries** - The number of retries to attempt accessing an external dependency.
 
 * **consul_agent_security_no_log** - If `true`, any action that could contain a potential secret will not be logged. This does set the `no_log` option for the majority of the role.
 

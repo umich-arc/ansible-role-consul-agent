@@ -2,10 +2,10 @@
 
 - name: FUNCTION - get_checksums - Download Consul Checksums
   get_url: url='{{ _consul_agent_checksums_url }}' dest='/tmp'
-  register: _consul_agent_download_agent_checksums
-  until: _consul_agent_download_agent_checksums|succeeded
-  delay: '{{ consul_agent_check_retries }}'
-  retries: '{{ consul_agent_check_delay }}'
+  register: _external_dependency_success
+  until: _external_dependency_success|success
+  retries: '{{ external_dependency_retries }}'
+  delay: '{{ external_dependency_delay }}'
 
 - name: FUNCTION - get_checksums - Get Consul Agent Checksum
   shell: >

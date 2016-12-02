@@ -10,10 +10,10 @@
     url: '{{ _consul_agent_archive_url }}'
     checksum: "{{ 'sha256:' ~ _consul_agent_archive_checksum.stdout|default(omit) }}"
     dest: /tmp
-  register: _consul_agent_download_agent_archive
-  until: _consul_agent_download_agent_archive|succeeded
-  delay: '{{ consul_agent_check_delay }}'
-  retries: '{{ consul_agent_check_retries }}'
+  register: _external_dependency_success
+  until: _external_dependency_success|success
+  delay: '{{ external_dependency_delay }}'
+  retries: '{{ external_dependency_retries }}'
 
 - name: INSTALL - Extract Consul Agent
   unarchive:
