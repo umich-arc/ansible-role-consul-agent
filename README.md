@@ -156,16 +156,19 @@ Once a server has obtained a session, it will attempt to acquire ownership of th
 For the node that obtained the lock, it will then proceed to perform the following actions for ACL creation, updating, or deletion.
 
 **ACL Creation**
+
 1. If an ACL is supplied and its 'Ansible friendly name' is unknown, attempt to create it.
 2. Once created, save the returned uuid from Consul.
 3. Update the Consul Security Config File that is stored on the master with with the ACL and the uuid.
 
 **ACL Update**
+
 1. If an ACL's 'Ansible friendly name' is known, compare the config in `consul_agent_acls` to what is stored on the master in Consul agent security config file.
 2. If they differ, get the uuid from the security config file, and attempt to update it in Consul.
 3. If the update in Consul was successful, update ACL definition in the security config file.
 
 **ACL Deletion**
+
 1. If there is an 'Ansible friendly name' in the security config file that is **NOT** in the `consul_agent_acls` hash, attempt to delete it.
 2. If the attempt was successful, remove the entries from the Consul agent security config file.
 
