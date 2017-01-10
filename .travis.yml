@@ -26,3 +26,6 @@ script:
 
 after_script:
   - bundle exec rake integration:cloud:sgroup-destroy
+
+notifications:
+  webhooks: https://galaxy.ansible.com/api/v1/notifications/
